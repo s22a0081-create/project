@@ -145,23 +145,24 @@ if st.button("Run Scheduling ACO"):
     st.pyplot(fig)
 
     # ==========================
-    # TABLE 1: Assigned vs Required
+    # TABLE: Assigned vs Required per Day
     # ==========================
-    rows = []
+    staff_matrix = np.sum(best_schedule, axis=2)
+
+    st.subheader("📋 Staffing Table (Assigned vs Required)")
+
     for d in range(7):
+        rows = []
         for t in range(28):
             rows.append({
-                "Day": d + 1,
                 "Time Period": t + 1,
                 "Assigned Employees": int(staff_matrix[d, t]),
                 "Required Employees": int(DEMAND[d, t]),
                 "Shortage": int(max(0, DEMAND[d, t] - staff_matrix[d, t]))
             })
-
-    df_staffing = pd.DataFrame(rows)
-
-    st.subheader("📋 Staffing Table (Assigned vs Required)")
-    st.dataframe(df_staffing)
+        df_day = pd.DataFrame(rows)
+        st.markdown(f"### Day {d+1}")
+        st.dataframe(df_day)
 
     # ==========================
     # TABLE 2: Employee Workload
