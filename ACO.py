@@ -105,34 +105,34 @@ if st.button("Run Scheduling ACO"):
     # ==========================
     # Table per Day: Assigned / Required / Shortage
     # ==========================
-    st.subheader("📋 Staffing Tables per Day")
-    total_shortage = 0
+    st.subheader("📋 Staffing Tables per Day (Period / Assigned / Required / Shortage)")
 
-    for d in range(7):
-        assigned_row = staff_matrix[d, :]
-        required_row = DEMAND[d, :]
-        shortage_row = np.maximum(0, required_row - assigned_row)
-        total_shortage += np.sum(shortage_row)
+total_shortage = 0
 
-        # Buat dataframe row = Assigned / Required / Shortage
-        df_day = pd.DataFrame([assigned_row, required_row, shortage_row],
-                              index=["Assigned", "Required", "Shortage"],
-                              columns=[f"P{t+1}" for t in range(28)])
-        st.markdown(f"### Day {d+1}")
-        st.dataframe(df_day.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=range(28)))
-        st.markdown("<br>", unsafe_allow_html=True)
+for d in range(7):
+    periods = np.arange(1, 29)
+    assigned_row = staff_matrix[d, :]
+    required_row = DEMAND[d, :]
+    shortage_row = np.maximum(0, required_row - assigned_row)
+    total_shortage += np.sum(shortage_row)
 
-    # ==========================
-    # SUMMARY
-    # ==========================
-    st.subheader("📌 Summary")
-    st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
+    # dataframe dengan row = Period / Assigned / Required / Shortage
+    df_day = pd.DataFrame([periods, assigned_row, required_row, shortage_row],
+                          index=["Period", "Assigned", "Required", "Shortage"],
+                          columns=[f"P{t+1}" for t in range(28)])
+    
+    st.markdown(f"### Day {d+1}")
+    st.dataframe(df_day.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=['P'+str(i+1) for i in range(28)]))
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # Employee workload
-    workloads = np.sum(best_schedule, axis=(0,1))
-    df_workload = pd.DataFrame({
-        "Employee ID": [f"E{i+1}" for i in range(n_employees)],
-        "Total Working Hours": workloads
-    })
-    st.markdown(f"- **Employee Workload (Total Hours per Week):**")
-    st.dataframe(df_workload)
+# Summary
+st.subheader("📌 Summary")
+st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
+
+workloads = np.sum(best_schedule, axis=(0,1))
+df_workload = pd.DataFrame({
+    "Employee ID": [f"E{i+1}" for i in range(n_employees)],
+    "Total Working Hours": workloads
+})
+st.markdown(f"- **Employee Workload (Total Hours per Week):**")
+st.dataframe(df_workload)
