@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # ==========================
 # DEMAND DATA (Table B1)
@@ -68,7 +69,7 @@ def ACO_scheduler(
         all_solutions = []
         all_scores = []
 
-        for ant in range(n_ants):
+        for _ in range(n_ants):
             schedule = np.zeros((days, times, n_employees))
 
             for d in range(days):
@@ -128,7 +129,9 @@ if st.button("Run Scheduling ACO"):
 
     st.success(f"Best Fitness Score: {best_score:.2f}")
 
-    # Visualization: total staff per day-time
+    # ==========================
+    # HEATMAP VISUALIZATION
+    # ==========================
     staff_matrix = np.sum(best_schedule, axis=2)
 
     fig, ax = plt.subplots()
@@ -140,3 +143,35 @@ if st.button("Run Scheduling ACO"):
 
     plt.colorbar(im)
     st.pyplot(fig)
+
+    # ==========================
+    # TABLE 1: Assigned vs Required
+    # ==========================
+    rows = []
+    for d in range(7):
+        for t in range(28):
+            rows.append({
+                "Day": d + 1,
+                "Time Period": t + 1,
+                "Assigned Employees": int(staff_matrix[d, t]),
+                "Required Employees": int(DEMAND[d, t]),
+                "Shortage": int(max(0, DEMAND[d, t] - staff_matrix[d, t]))
+            })
+
+    df_staffing = pd.DataFrame(rows)
+
+    st.subheader("📋 Staffing Table (Assigned vs Required)")
+    st.dataframe(df_staffing)
+
+    # ==========================
+    # TABLE 2: Employee Workload
+    # ==========================
+    workloads = np.sum(best_schedule, axis=(0, 1))
+
+    df_workload = pd.DataFrame({
+        "Employee ID": [f"E{i+1}" for i in range(len(workloads))],
+        "Total Working Hours": workloads
+    })
+
+    st.subheader("👷 Employee Workload Summary")
+    st.dataframe(df_workload)
