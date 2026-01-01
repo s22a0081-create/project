@@ -100,31 +100,27 @@ if st.button("Run Scheduling ACO"):
         DEMAND, n_employees, n_ants, n_iter, alpha, beta, evaporation, Q, max_hours
     )
 
-    st.success(f"Best Fitness Score: {best_score:.2f}")
+    st.success(f"Best Fitness Score: {best_score:.0f}")
     staff_matrix = np.sum(best_schedule, axis=2)
 
     # ==========================
-    # Table per Day (Period / Assigned / Required / Shortage)
+    # Table per Day (Assigned / Required / Shortage)
     # ==========================
     st.subheader("📋 Staffing Tables per Day")
     total_shortage = 0
 
     for d in range(7):
-        periods = np.arange(1, 29)
-        assigned_row = staff_matrix[d, :]
-        required_row = DEMAND[d, :]
-        shortage_row = np.maximum(0, required_row - assigned_row)
+        assigned_row = staff_matrix[d, :].astype(int)
+        required_row = DEMAND[d, :].astype(int)
+        shortage_row = np.maximum(0, required_row - assigned_row).astype(int)
         total_shortage += np.sum(shortage_row)
 
-        # DataFrame row = Period / Assigned / Required / Shortage
-        df_day = pd.DataFrame([periods, assigned_row, required_row, shortage_row],
-                              index=["Period", "Assigned", "Required", "Shortage"],
+        df_day = pd.DataFrame([assigned_row, required_row, shortage_row],
+                              index=["Assigned", "Required", "Shortage"],
                               columns=[f"P{i+1}" for i in range(28)])
         
-        # convert index jadi column supaya Streamlit treat Period sebagai row biasa
-        df_day_reset = df_day.reset_index().rename(columns={"index": "Type"})
         st.markdown(f"### Day {d+1}")
-        st.dataframe(df_day_reset.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=[f"P{i+1}" for i in range(28)]))
+        st.dataframe(df_day.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=[f"P{i+1}" for i in range(28)]))
         st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================
@@ -133,7 +129,7 @@ if st.button("Run Scheduling ACO"):
     st.subheader("📌 Summary")
     st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
 
-    workloads = np.sum(best_schedule, axis=(0,1))
+    workloads = np.sum(best_schedule, axis=(0,1)).astype(int)
     df_workload = pd.DataFrame({
         "Employee ID": [f"E{i+1}" for i in range(n_employees)],
         "Total Working Hours": workloads
