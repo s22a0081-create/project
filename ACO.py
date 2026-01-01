@@ -83,6 +83,7 @@ def ACO_scheduler(demand, n_employees, n_ants, n_iter, alpha, beta, evaporation,
 # ==========================
 st.title("🐜 ACO Employee Shift Scheduling")
 
+# Sidebar ACO parameters
 st.sidebar.header("ACO Parameters")
 n_employees = st.sidebar.slider("Number of Employees", 5, 50, 20)
 n_ants = st.sidebar.slider("Number of Ants", 5, 50, 20)
@@ -93,46 +94,49 @@ evaporation = st.sidebar.slider("Evaporation Rate", 0.01, 0.9, 0.3)
 Q = st.sidebar.slider("Q (deposit)", 1, 100, 50)
 max_hours = st.sidebar.slider("Max Working Hours / Week", 20, 60, 40)
 
+# Run ACO
 if st.button("Run Scheduling ACO"):
     best_schedule, best_score = ACO_scheduler(
         DEMAND, n_employees, n_ants, n_iter, alpha, beta, evaporation, Q, max_hours
     )
 
     st.success(f"Best Fitness Score: {best_score:.2f}")
-
     staff_matrix = np.sum(best_schedule, axis=2)
 
     # ==========================
-    # Table per Day: Assigned / Required / Shortage
+    # Table per Day (Period / Assigned / Required / Shortage)
     # ==========================
-    st.subheader("📋 Staffing Tables per Day (Period / Assigned / Required / Shortage)")
+    st.subheader("📋 Staffing Tables per Day")
+    total_shortage = 0
 
-total_shortage = 0
+    for d in range(7):
+        periods = np.arange(1, 29)
+        assigned_row = staff_matrix[d, :]
+        required_row = DEMAND[d, :]
+        shortage_row = np.maximum(0, required_row - assigned_row)
+        total_shortage += np.sum(shortage_row)
 
-for d in range(7):
-    periods = np.arange(1, 29)
-    assigned_row = staff_matrix[d, :]
-    required_row = DEMAND[d, :]
-    shortage_row = np.maximum(0, required_row - assigned_row)
-    total_shortage += np.sum(shortage_row)
+        # DataFrame row = Period / Assigned / Required / Shortage
+        df_day = pd.DataFrame([periods, assigned_row, required_row, shortage_row],
+                              index=["Period", "Assigned", "Required", "Shortage"],
+                              columns=[f"P{i+1}" for i in range(28)])
+        
+        # convert index jadi column supaya Streamlit treat Period sebagai row biasa
+        df_day_reset = df_day.reset_index().rename(columns={"index": "Type"})
+        st.markdown(f"### Day {d+1}")
+        st.dataframe(df_day_reset.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=[f"P{i+1}" for i in range(28)]))
+        st.markdown("<br>", unsafe_allow_html=True)
 
-    # dataframe dengan row = Period / Assigned / Required / Shortage
-    df_day = pd.DataFrame([periods, assigned_row, required_row, shortage_row],
-                          index=["Period", "Assigned", "Required", "Shortage"],
-                          columns=[f"P{t+1}" for t in range(28)])
-    
-    st.markdown(f"### Day {d+1}")
-    st.dataframe(df_day.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=['P'+str(i+1) for i in range(28)]))
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ==========================
+    # Summary
+    # ==========================
+    st.subheader("📌 Summary")
+    st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
 
-# Summary
-st.subheader("📌 Summary")
-st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
-
-workloads = np.sum(best_schedule, axis=(0,1))
-df_workload = pd.DataFrame({
-    "Employee ID": [f"E{i+1}" for i in range(n_employees)],
-    "Total Working Hours": workloads
-})
-st.markdown(f"- **Employee Workload (Total Hours per Week):**")
-st.dataframe(df_workload)
+    workloads = np.sum(best_schedule, axis=(0,1))
+    df_workload = pd.DataFrame({
+        "Employee ID": [f"E{i+1}" for i in range(n_employees)],
+        "Total Working Hours": workloads
+    })
+    st.markdown(f"- **Employee Workload (Total Hours per Week):**")
+    st.dataframe(df_workload)
