@@ -32,7 +32,7 @@ def fitness(schedule, demand, max_hours):
             if assigned < required:
                 penalty += (required - assigned) * 1000
 
-    # HC3: Max working hours per employee
+    # HC2: Max working hours per employee
     for e in range(employees):
         total_hours = np.sum(schedule[:, :, e])
         if total_hours > max_hours:
@@ -44,21 +44,10 @@ def fitness(schedule, demand, max_hours):
 
     return penalty
 
-
 # ==========================
 # ACO ALGORITHM
 # ==========================
-def ACO_scheduler(
-    demand,
-    n_employees,
-    n_ants,
-    n_iter,
-    alpha,
-    beta,
-    evaporation,
-    Q,
-    max_hours
-):
+def ACO_scheduler(demand, n_employees, n_ants, n_iter, alpha, beta, evaporation, Q, max_hours):
     days, times = demand.shape
     pheromone = np.ones((days, times, n_employees))
 
@@ -87,15 +76,11 @@ def ACO_scheduler(
                 best_score = score
                 best_schedule = schedule.copy()
 
-        # Evaporation
         pheromone *= (1 - evaporation)
-
-        # Pheromone update
         for sol, score in zip(all_solutions, all_scores):
             pheromone += (Q / (1 + score)) * sol
 
     return best_schedule, best_score
-
 
 # ==========================
 # STREAMLIT UI
@@ -103,11 +88,9 @@ def ACO_scheduler(
 st.title("🐜 ACO Employee Shift Scheduling")
 
 st.sidebar.header("ACO Parameters")
-
 n_employees = st.sidebar.slider("Number of Employees", 5, 50, 20)
 n_ants = st.sidebar.slider("Number of Ants", 5, 50, 20)
 n_iter = st.sidebar.slider("Iterations", 10, 200, 50)
-
 alpha = st.sidebar.slider("Alpha (pheromone)", 0.1, 5.0, 1.0)
 beta = st.sidebar.slider("Beta (heuristic)", 0.1, 5.0, 2.0)
 evaporation = st.sidebar.slider("Evaporation Rate", 0.01, 0.9, 0.3)
@@ -116,74 +99,55 @@ max_hours = st.sidebar.slider("Max Working Hours / Week", 20, 60, 40)
 
 if st.button("Run Scheduling ACO"):
     best_schedule, best_score = ACO_scheduler(
-        DEMAND,
-        n_employees,
-        n_ants,
-        n_iter,
-        alpha,
-        beta,
-        evaporation,
-        Q,
-        max_hours
+        DEMAND, n_employees, n_ants, n_iter, alpha, beta, evaporation, Q, max_hours
     )
 
     st.success(f"Best Fitness Score: {best_score:.2f}")
 
-    # ==========================
-    # HEATMAP VISUALIZATION
-    # ==========================
     staff_matrix = np.sum(best_schedule, axis=2)
 
+    # ==========================
+    # HEATMAP
+    # ==========================
     fig, ax = plt.subplots()
-    im = ax.imshow(staff_matrix, aspect='auto')
-
+    im = ax.imshow(staff_matrix, aspect='auto', cmap="YlGn")
     ax.set_xlabel("Time Period (1–28)")
     ax.set_ylabel("Day (1–7)")
     ax.set_title("Assigned Employees Heatmap")
-
     plt.colorbar(im)
     st.pyplot(fig)
 
-# ==========================
-# TABLE: Assigned vs Required per Day (highlight shortage)
-# ==========================
-staff_matrix = np.sum(best_schedule, axis=2)
+    # ==========================
+    # TABLE PER DAY (Assigned, Required, Shortage)
+    # ==========================
+    total_shortage = 0
+    for d in range(7):
+        assigned_row = staff_matrix[d, :]
+        required_row = DEMAND[d, :]
+        shortage_row = np.maximum(0, required_row - assigned_row)
 
-st.subheader("📋 Staffing Table (Assigned vs Required per Day)")
+        total_shortage += np.sum(shortage_row)
 
-def highlight_shortage(val):
-    color = 'red' if val > 0 else ''
-    return f'background-color: {color}'
-
-for d in range(7):
-    rows = []
-    for t in range(28):
-        rows.append({
-            "Time Period": t + 1,
-            "Assigned Employees": int(staff_matrix[d, t]),
-            "Required Employees": int(DEMAND[d, t]),
-            "Shortage": int(max(0, DEMAND[d, t] - staff_matrix[d, t]))
-        })
-    df_day = pd.DataFrame(rows)
-    
-    # Subheader per day
-    st.markdown(f"### Day {d+1}")
-    
-    # dataframe dengan highlight
-    st.dataframe(df_day.style.applymap(highlight_shortage, subset=['Shortage']))
-    
-    # line break supaya visual jelas per day
-    st.markdown("<br>", unsafe_allow_html=True)
+        df_day = pd.DataFrame([assigned_row, required_row, shortage_row],
+                              index=["Assigned", "Required", "Shortage"],
+                              columns=[f"P{t+1}" for t in range(28)])
+        st.markdown(f"### Day {d+1}")
+        st.dataframe(df_day.style.applymap(lambda x: 'background-color: red' if x > 0 else '', subset=range(28)))
+        st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================
-    # TABLE 2: Employee Workload
+    # SUMMARY
     # ==========================
-    workloads = np.sum(best_schedule, axis=(0, 1))
+    st.subheader("📌 Summary")
 
+    # Total shortage
+    st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
+
+    # Workload per employee
+    workloads = np.sum(best_schedule, axis=(0,1))
     df_workload = pd.DataFrame({
-        "Employee ID": [f"E{i+1}" for i in range(len(workloads))],
+        "Employee ID": [f"E{i+1}" for i in range(n_employees)],
         "Total Working Hours": workloads
     })
-
-    st.subheader("👷 Employee Workload Summary")
+    st.markdown(f"- **Employee Workload (Total Hours per Week):**")
     st.dataframe(df_workload)
