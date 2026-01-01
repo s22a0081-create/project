@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import random
-import matplotlib.pyplot as plt
 import pandas as pd
 
 # ==========================
@@ -60,18 +59,15 @@ def ACO_scheduler(demand, n_employees, n_ants, n_iter, alpha, beta, evaporation,
 
         for _ in range(n_ants):
             schedule = np.zeros((days, times, n_employees))
-
             for d in range(days):
                 for t in range(times):
                     for e in range(n_employees):
                         prob = pheromone[d, t, e] ** alpha
                         if random.random() < prob / (1 + prob):
                             schedule[d, t, e] = 1
-
             score = fitness(schedule, demand, max_hours)
             all_solutions.append(schedule)
             all_scores.append(score)
-
             if score < best_score:
                 best_score = score
                 best_schedule = schedule.copy()
@@ -107,27 +103,18 @@ if st.button("Run Scheduling ACO"):
     staff_matrix = np.sum(best_schedule, axis=2)
 
     # ==========================
-    # HEATMAP
+    # Table per Day: Assigned / Required / Shortage
     # ==========================
-    fig, ax = plt.subplots()
-    im = ax.imshow(staff_matrix, aspect='auto', cmap="YlGn")
-    ax.set_xlabel("Time Period (1–28)")
-    ax.set_ylabel("Day (1–7)")
-    ax.set_title("Assigned Employees Heatmap")
-    plt.colorbar(im)
-    st.pyplot(fig)
-
-    # ==========================
-    # TABLE PER DAY (Assigned, Required, Shortage)
-    # ==========================
+    st.subheader("📋 Staffing Tables per Day")
     total_shortage = 0
+
     for d in range(7):
         assigned_row = staff_matrix[d, :]
         required_row = DEMAND[d, :]
         shortage_row = np.maximum(0, required_row - assigned_row)
-
         total_shortage += np.sum(shortage_row)
 
+        # Buat dataframe row = Assigned / Required / Shortage
         df_day = pd.DataFrame([assigned_row, required_row, shortage_row],
                               index=["Assigned", "Required", "Shortage"],
                               columns=[f"P{t+1}" for t in range(28)])
@@ -139,11 +126,9 @@ if st.button("Run Scheduling ACO"):
     # SUMMARY
     # ==========================
     st.subheader("📌 Summary")
-
-    # Total shortage
     st.markdown(f"- **Total Shortage (all week):** {int(total_shortage)} slots")
 
-    # Workload per employee
+    # Employee workload
     workloads = np.sum(best_schedule, axis=(0,1))
     df_workload = pd.DataFrame({
         "Employee ID": [f"E{i+1}" for i in range(n_employees)],
