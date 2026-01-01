@@ -144,25 +144,36 @@ if st.button("Run Scheduling ACO"):
     plt.colorbar(im)
     st.pyplot(fig)
 
-    # ==========================
-    # TABLE: Assigned vs Required per Day
-    # ==========================
-    staff_matrix = np.sum(best_schedule, axis=2)
+# ==========================
+# TABLE: Assigned vs Required per Day (highlight shortage)
+# ==========================
+staff_matrix = np.sum(best_schedule, axis=2)
 
-    st.subheader("📋 Staffing Table (Assigned vs Required)")
+st.subheader("📋 Staffing Table (Assigned vs Required per Day)")
 
-    for d in range(7):
-        rows = []
-        for t in range(28):
-            rows.append({
-                "Time Period": t + 1,
-                "Assigned Employees": int(staff_matrix[d, t]),
-                "Required Employees": int(DEMAND[d, t]),
-                "Shortage": int(max(0, DEMAND[d, t] - staff_matrix[d, t]))
-            })
-        df_day = pd.DataFrame(rows)
-        st.markdown(f"### Day {d+1}")
-        st.dataframe(df_day)
+def highlight_shortage(val):
+    color = 'red' if val > 0 else ''
+    return f'background-color: {color}'
+
+for d in range(7):
+    rows = []
+    for t in range(28):
+        rows.append({
+            "Time Period": t + 1,
+            "Assigned Employees": int(staff_matrix[d, t]),
+            "Required Employees": int(DEMAND[d, t]),
+            "Shortage": int(max(0, DEMAND[d, t] - staff_matrix[d, t]))
+        })
+    df_day = pd.DataFrame(rows)
+    
+    # Subheader per day
+    st.markdown(f"### Day {d+1}")
+    
+    # dataframe dengan highlight
+    st.dataframe(df_day.style.applymap(highlight_shortage, subset=['Shortage']))
+    
+    # line break supaya visual jelas per day
+    st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================
     # TABLE 2: Employee Workload
